@@ -1,6 +1,7 @@
 
 
-import { useEffect, useRef, type CanvasHTMLAttributes } from "react"
+import { useEffect, useRef } from "react"
+import type { BBox } from "../utils/processOutput";
 
 
 
@@ -8,14 +9,20 @@ type CanvasProps = {
   width: number;
   height: number;
   source: HTMLVideoElement;
+  bbox: React.RefObject<BBox | null>;
 };
 
 
-export default function Canvas( {width, height, source}:CanvasProps){
+export default function Canvas( {width, height, source, bbox}:CanvasProps){
     const ref = useRef<HTMLCanvasElement>(null);
+
+    
+
+    
 
   
      useEffect(() => {
+       
         const canvas = ref.current;
         if (!canvas || !source) return;
 
@@ -27,6 +34,15 @@ export default function Canvas( {width, height, source}:CanvasProps){
         const loop = () => {
             if (source.readyState >= 2) { //Cuando haya un fotograma cargado
                 ctx.drawImage(source, 0, 0, canvas.width, canvas.height); //Fotograma actual
+
+                const box=bbox.current;
+
+                
+
+                if (box){
+                    ctx.strokeRect(box.x,box.y,box.w,box.h);
+                }
+                
             }
             raf = requestAnimationFrame(loop); //Vuelve a ejecutar loop en el borrado de pantalla
         };

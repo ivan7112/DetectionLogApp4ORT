@@ -205,6 +205,7 @@ export default function Detect(){
 
         <div>
             <button onClick={()=>{
+                createCsv(csvRows.current);
                 setStart(false);
                 csvRows.current=[]; //Reseteamos CSV
             }}>Close Camera</button>

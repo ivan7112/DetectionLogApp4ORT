@@ -49,7 +49,7 @@ export default function Canvas( {width, height, source, bbox}:CanvasProps){
         
         raf = requestAnimationFrame(loop);
 
-        return () => cancelAnimationFrame(raf); //Función de limpieza, detiene el bucle (Al cambiar source)
+        return () => cancelAnimationFrame(raf); //Función de limpieza, detiene el bucle 
   }, [source]);
     
     return (

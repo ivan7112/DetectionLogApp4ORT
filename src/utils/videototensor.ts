@@ -1,42 +1,43 @@
-import * as ort from "onnxruntime-web";
-
-const SIZE = 640; // tamaño de entrada del modelo
-
-// Se crean una vez y se reutilizan (crear un canvas por frame es caro)
-const offscreen = document.createElement("canvas");
-offscreen.width = SIZE;
-offscreen.height = SIZE;
-const ctx = offscreen.getContext("2d", { willReadFrequently: true })!;
-const floatData = new Float32Array(3 * SIZE * SIZE); //3 valores por pixel
+import * as ort from "onnxruntime-web/webgpu";
 
 export type Letterbox = { scale: number; padX: number; padY: number };
 
-export function videoToTensor(video: HTMLVideoElement): { tensor: ort.Tensor; letterbox: Letterbox } {
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
+export function createVideoPreprocessor(size: number) {
+    // Un canvas y un buffer por tamaño, creados una sola vez
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const floatData = new Float32Array(3 * size * size);
+    const plane = size * size;
 
-    // Escala manteniendo proporción y centrado
-    const scale = Math.min(SIZE / vw, SIZE / vh);
-    const w = Math.round(vw * scale);
-    const h = Math.round(vh * scale);
-    const padX = Math.floor((SIZE - w) / 2);
-    const padY = Math.floor((SIZE - h) / 2);
+    return (video: HTMLVideoElement): { tensor: ort.Tensor; letterbox: Letterbox } => {
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
 
-    // Fondo gris + frame
-    ctx.fillStyle = "rgb(114,114,114)";
-    ctx.fillRect(0, 0, SIZE, SIZE);
-    ctx.drawImage(video, padX, padY, w, h);
+        // Escala manteniendo proporción y centrado
+        const scale = Math.min(size / vw, size / vh);
+        const w = Math.round(vw * scale);
+        const h = Math.round(vh * scale);
+        const padX = Math.floor((size - w) / 2);
+        const padY = Math.floor((size - h) / 2);
 
-    // RGBA intercalado -> NCHW planar, normalizado
-    const { data } = ctx.getImageData(0, 0, SIZE, SIZE);
-    const plane = SIZE * SIZE;
+        ctx.fillStyle = "rgb(114,114,114)";
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(video, padX, padY, w, h);
 
-    for (let i = 0; i < plane; i++) {
-        floatData[i] = data[i * 4]     / 255; // R
-        floatData[i + plane] = data[i * 4 + 1] / 255; // G
-        floatData[i + 2 * plane] = data[i * 4 + 2] / 255; // B
-    }
+        // RGBA intercalado -> NCHW planar, normalizado a [0, 1]
+        const { data } = ctx.getImageData(0, 0, size, size);
+        for (let i = 0; i < plane; i++) {
+            floatData[i]             = data[i * 4]     / 255;
+            floatData[i + plane]     = data[i * 4 + 1] / 255;
+            floatData[i + 2 * plane] = data[i * 4 + 2] / 255;
+        }
 
-    const tensor = new ort.Tensor("float32", floatData, [1, 3, SIZE, SIZE]);
-    return { tensor, letterbox: { scale, padX, padY } };
+        const tensor = new ort.Tensor("float32", floatData, [1, 3, size, size]);
+        return { tensor, letterbox: { scale, padX, padY } };
+    };
 }
+
+export const videoToTensor = createVideoPreprocessor(640);               // detector
+export const videoToHeadPoseTensor = createVideoPreprocessor(384);       // clasificador cabeza

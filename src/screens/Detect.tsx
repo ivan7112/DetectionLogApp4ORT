@@ -2,27 +2,43 @@
 import * as ort from "onnxruntime-web";
 import Canvas from "../components/Canvas";
 import { useEffect, useState, useRef } from "react";
-import { videoToTensor} from "../utils/videototensor";
+import { videoToTensor, videoToHeadPoseTensor} from "../utils/videototensor";
 import processOutput from "../utils/processOutput";
+import { classifyGazeDirection, classifyHeadPosition, type Classification } from "../utils/classifyHeadPosition";
+import { eyeCropToTensor } from "../utils/cropEye";
+import createCsv from "../utils/createCsv";
 
 
 
 export default function Detect(){
 
+    interface CsvRow{
+        HH:string,
+        MM:string,
+        SS:string,
+        head_position:string,
+        gaze_direction:string
+    }
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const [video, setVideo] = useState<HTMLVideoElement | null>(null);
 
     const [start, setStart]=useState(false);
+    const [headPosition,setHeadPosition]=useState("");
+    const [gazeDirection, setGazeDirection]=useState("");
 
     const startRef=useRef(start);
     const intervalRef=useRef(30);
-
-
     const frameRef=useRef(0);
     const busyRef=useRef(false);
     const sessionRef = useRef<ort.InferenceSession | null>(null);
+    const sessionHeadPositionRef=useRef<ort.InferenceSession | null>(null);
+    const sessionGazeDirectionRef=useRef<ort.InferenceSession | null>(null);
 
     const bboxRef = useRef<ReturnType<typeof processOutput>>(null);
+
+    //Líneas para el CSV. Tendrán formato HH,MM,SS,head_position,gaze_direction
+    const csvRows = useRef<Array<CsvRow>>([]);
 
 
 
@@ -32,6 +48,21 @@ export default function Detect(){
         
         return sessionRef.current;
     }
+
+    const getSessionHeadPosition=async  ()=>{
+        if (!sessionHeadPositionRef.current) sessionHeadPositionRef.current=await ort.
+            InferenceSession.create('/head_pose_classificator.onnx',
+                {executionProviders: ["webgpu", "wasm"]});
+        
+        return sessionHeadPositionRef.current;
+    }
+
+    const getSessiongazeDirection=async  ()=>{
+        if (!sessionGazeDirectionRef.current) sessionGazeDirectionRef.current=await ort.
+            InferenceSession.create('/gaze_direction_classificator.onnx',{executionProviders: ["webgpu", "wasm"]});
+        
+        return sessionGazeDirectionRef.current;
+    }
     
 
     useEffect(() => {
@@ -39,7 +70,7 @@ export default function Detect(){
         let cancelled = false;
         
 
-        (async () => {
+        (async () => { //abrir cámara. 
             if(start){
                 const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 if (cancelled) {
@@ -65,6 +96,16 @@ export default function Detect(){
     
 
     const headDetectionInference=async  (video:HTMLVideoElement) =>{
+        //Va guardando las detecciones en csvRows hasta que se cierre la cámara
+
+        let rowCsv:CsvRow={
+            HH:"",
+            MM:"",
+            SS:"",
+            head_position:"",
+            gaze_direction:""
+
+        };
 
         const {tensor, letterbox}=videoToTensor(video);
         const session=await getSession();
@@ -76,13 +117,57 @@ export default function Detect(){
 
         bboxRef.current=processOutput(output, letterbox); //tensor to bbox 
 
-        //console.log(bboxRef.current);
+        //Clasificación
+        if (bboxRef.current){
+
+
+            const {tensor}=videoToHeadPoseTensor(video);
+            const sessionHeadPose=await getSessionHeadPosition();
+            const resultHeadPosition=await sessionHeadPose.run({[sessionHeadPose.inputNames[0]]:tensor})
+            const output2=resultHeadPosition[sessionHeadPose.outputNames[0]];
+
+            const headPoseClass:Classification=classifyHeadPosition(output2);
+
+            setHeadPosition(headPoseClass.label);
+
+            const date= new Date();
+            const hour=date.getHours();
+            const minute=date.getMinutes();
+            const second=date.getSeconds();
+
+            const headPosition=headPoseClass.label;
+
+            rowCsv={
+                HH:hour.toString(),
+                MM:minute.toString(),
+                SS:second.toString(),
+                head_position:headPosition,
+                gaze_direction:""
+            }
+
+            if (headPosition==="centro"){
+                const tensor=eyeCropToTensor(video, bboxRef.current);
+
+                const sessionGazeDirection=await  getSessiongazeDirection();
+                const resultGazeDirection= await sessionGazeDirection.run({[ sessionGazeDirection.inputNames[0]]:tensor});
+                const output3= resultGazeDirection[sessionGazeDirection.outputNames[0]];
+
+                const gazeDirectionClass=classifyGazeDirection(output3);
+                setGazeDirection(gazeDirectionClass.label);
+
+                rowCsv={...rowCsv, gaze_direction:gazeDirectionClass.label};
+            }
+
+            csvRows.current.push(rowCsv);
+
+            
+        }
         
         busyRef.current=false;
     }
 
     
-    useEffect(()=>{
+    useEffect(()=>{ //Loop principal
         let rafid:number;
         
         const loop=async ()=>{
@@ -121,6 +206,7 @@ export default function Detect(){
         <div>
             <button onClick={()=>{
                 setStart(false);
+                csvRows.current=[]; //Reseteamos CSV
             }}>Close Camera</button>
         </div>
 
@@ -132,17 +218,24 @@ export default function Detect(){
 
         </div>
 
+
         {start && (
 
         <div>
+            <div>
+                <p>Posición de la Cabeza:{headPosition}</p>
+            </div>
+
+            <div>
+                <p>Dirección de la Mirada:{gazeDirection}</p>
+            </div>
+
         <video ref={videoRef} autoPlay playsInline muted style={{display:'none'}} />
         <Canvas width={640} height={480} source={video!} bbox={bboxRef!} />
         </div>
         )}
 
-        <button onClick={()=>{
-            console.log(frameRef.current);
-        }}>Log frameRef</button>
+        
         </>
     )
 }

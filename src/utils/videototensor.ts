@@ -29,12 +29,12 @@ export function createVideoPreprocessor(size: number) {
         // RGBA intercalado -> NCHW planar, normalizado a [0, 1]
         const { data } = ctx.getImageData(0, 0, size, size);
         for (let i = 0; i < plane; i++) {
-            floatData[i]             = data[i * 4]     / 255;
-            floatData[i + plane]     = data[i * 4 + 1] / 255;
-            floatData[i + 2 * plane] = data[i * 4 + 2] / 255;
+            floatData[i]             = data[i * 4]     / 255; //R
+            floatData[i + plane]     = data[i * 4 + 1] / 255; //G
+            floatData[i + 2 * plane] = data[i * 4 + 2] / 255; //B
         }
 
-        const tensor = new ort.Tensor("float32", floatData, [1, 3, size, size]);
+        const tensor = new ort.Tensor("float32", floatData, [1, 3, size, size]); //1 foto, 3 canales, mxn
         return { tensor, letterbox: { scale, padX, padY } };
     };
 }

@@ -28,7 +28,7 @@ export default function Detect(){
     const [gazeDirection, setGazeDirection]=useState("");
 
     const startRef=useRef(start);
-    const intervalRef=useRef(30);
+    const intervalRef=useRef(60);
     const frameRef=useRef(0);
     const busyRef=useRef(false);
     const sessionRef = useRef<ort.InferenceSession | null>(null);
@@ -51,7 +51,7 @@ export default function Detect(){
 
     const getSessionHeadPosition=async  ()=>{
         if (!sessionHeadPositionRef.current) sessionHeadPositionRef.current=await ort.
-            InferenceSession.create('/head_pose_classificator.onnx',
+            InferenceSession.create('/head_classificator_v2_alt.onnx',
                 {executionProviders: ["webgpu", "wasm"]});
         
         return sessionHeadPositionRef.current;
@@ -213,7 +213,7 @@ export default function Detect(){
 
         <div>
             <label htmlFor="frames">Catch every x frames:  </label>
-            <input id="frames" type="text" defaultValue={30} onChange={(event)=>{
+            <input id="frames" type="text" defaultValue={60} onChange={(event)=>{
                 intervalRef.current=parseInt(event.target.value);
             }}/>
 
@@ -224,11 +224,11 @@ export default function Detect(){
 
         <div>
             <div>
-                <p>Posición de la Cabeza:{headPosition}</p>
+                <p>Head Position:{headPosition}</p>
             </div>
 
             <div>
-                <p>Dirección de la Mirada:{gazeDirection}</p>
+                <p>Gaze Direction:{gazeDirection}</p>
             </div>
 
         <video ref={videoRef} autoPlay playsInline muted style={{display:'none'}} />

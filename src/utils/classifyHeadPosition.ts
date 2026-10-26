@@ -21,7 +21,7 @@ export function classifyGazeDirection(output: ort.Tensor): Classification {
     const sum = values.reduce((a, b) => a + b, 0);
     const isProbability = Math.abs(sum - 1) < 0.01 && values.every((v) => v >= 0);
 
-    if (!isProbability) {
+    if (!isProbability) { //softmax, para convertir a posibilidades
         const max = Math.max(...values); // restar el máximo evita desbordamientos en exp()
         const exps = values.map((v) => Math.exp(v - max));
         const total = exps.reduce((a, b) => a + b, 0);
@@ -46,12 +46,11 @@ export function classifyHeadPosition(output: ort.Tensor): Classification {
     const raw = output.data as Float32Array;
     let values = Array.from(raw);
 
-    // Ultralytics exporta el softmax incluido, así que la suma ya es 1.
-    // Si no lo fuera (logits), lo aplicamos aquí.
+    
     const sum = values.reduce((a, b) => a + b, 0);
     const isProbability = Math.abs(sum - 1) < 0.01 && values.every((v) => v >= 0);
 
-    if (!isProbability) {
+    if (!isProbability) { //softmax, para convertir probabilidades
         const max = Math.max(...values); // restar el máximo evita desbordamientos en exp()
         const exps = values.map((v) => Math.exp(v - max));
         const total = exps.reduce((a, b) => a + b, 0);

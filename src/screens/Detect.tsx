@@ -28,7 +28,7 @@ export default function Detect(){
     const [gazeDirection, setGazeDirection]=useState("");
 
     const startRef=useRef(start);
-    const intervalRef=useRef(60);
+    const intervalRef=useRef(10);
     const frameRef=useRef(0);
     const busyRef=useRef(false);
     const sessionRef = useRef<ort.InferenceSession | null>(null);
@@ -117,7 +117,7 @@ export default function Detect(){
 
         bboxRef.current=processOutput(output, letterbox); //tensor to bbox 
 
-        //Clasificación
+        //Clasificación si se detecta una cabeza
         if (bboxRef.current){
 
 
@@ -213,7 +213,7 @@ export default function Detect(){
 
         <div>
             <label htmlFor="frames">Catch every x frames:  </label>
-            <input id="frames" type="text" defaultValue={60} onChange={(event)=>{
+            <input id="frames" type="text" defaultValue={10} onChange={(event)=>{
                 intervalRef.current=parseInt(event.target.value);
             }}/>
 

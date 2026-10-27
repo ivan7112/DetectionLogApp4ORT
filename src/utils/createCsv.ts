@@ -3,7 +3,7 @@ const createCsv= (data:Array<Object>) =>{
 
     const csvRows:Array<string>=[];
 
-    const headers:string= Object.keys(data[0]).join(","); //Cabecera CSV
+    const headers:string= Object.keys(data[0]).join(","); //CSV header
 
     csvRows.push(headers);
 

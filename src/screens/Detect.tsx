@@ -37,7 +37,8 @@ export default function Detect(){
 
     const bboxRef = useRef<ReturnType<typeof processOutput>>(null);
 
-    //Líneas para el CSV. Tendrán formato HH,MM,SS,head_position,gaze_direction
+
+    //CSV Rows. The format will be HH,MM,SS,head_position,gaze_direction
     const csvRows = useRef<Array<CsvRow>>([]);
 
 
@@ -70,7 +71,7 @@ export default function Detect(){
         let cancelled = false;
         
 
-        (async () => { //abrir cámara. 
+        (async () => { //Open camera
             if(start){
                 const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 if (cancelled) {
@@ -81,7 +82,7 @@ export default function Detect(){
                 const v = videoRef.current!;
                 v.srcObject = s;
                 await v.play();
-                setVideo(v); // ahora Canvas empieza a dibujar
+                setVideo(v); // Now canvas starts drawing
 
             }
         })();
@@ -96,7 +97,7 @@ export default function Detect(){
     
 
     const headDetectionInference=async  (video:HTMLVideoElement) =>{
-        //Va guardando las detecciones en csvRows hasta que se cierre la cámara
+        //Stores detections in csvRows until the camera is closed
 
         let rowCsv:CsvRow={
             HH:"",
@@ -117,7 +118,7 @@ export default function Detect(){
 
         bboxRef.current=processOutput(output, letterbox); //tensor to bbox 
 
-        //Clasificación si se detecta una cabeza
+        //Classify if we detect a head
         if (bboxRef.current){
 
 
@@ -145,7 +146,7 @@ export default function Detect(){
                 gaze_direction:""
             }
 
-            if (headPosition==="centro"){
+            if (headPosition==="center"){
                 const tensor=eyeCropToTensor(video, bboxRef.current);
 
                 const sessionGazeDirection=await  getSessiongazeDirection();
@@ -167,7 +168,7 @@ export default function Detect(){
     }
 
     
-    useEffect(()=>{ //Loop principal
+    useEffect(()=>{ //Main loop
         let rafid:number;
         
         const loop=async ()=>{
@@ -188,10 +189,9 @@ export default function Detect(){
         
     }
     rafid=requestAnimationFrame(loop);
-    return ()=>cancelAnimationFrame(rafid); //Sin esto sigue el loop incluso al desmontar
+    return ()=>cancelAnimationFrame(rafid); //Without this loop would continue even upon dismount
     },[]);
 
-  //<video> es para decodificar la información de 
 
     return (
         <>
@@ -207,7 +207,7 @@ export default function Detect(){
             <button onClick={()=>{
                 createCsv(csvRows.current);
                 setStart(false);
-                csvRows.current=[]; //Reseteamos CSV
+                csvRows.current=[]; //Reset CSV rows
             }}>Close Camera</button>
         </div>
 

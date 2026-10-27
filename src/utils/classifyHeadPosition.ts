@@ -1,28 +1,29 @@
 import * as ort from "onnxruntime-web";
 
-// Mismo orden que model.names en Python (print(model.names)).
-// Sustituye estos nombres por las clases de tu clasificador de posición.
-export const CLASS_NAMES = ["abajo", "arriba", "centro", "derecha", "izquierda"];
-export const EYE_CLASS_NAMES=["abajo", "arriba", "centro", "derecha", "izquierda"];
+
+//Same order as model.names in Python 
+//Replace this names with your own classificator's classes
+export const CLASS_NAMES = ["down", "up", "center", "right", "left"];
+export const EYE_CLASS_NAMES=["down", "up", "center", "right", "left"];
 
 export type Classification = {
     label: string;
     index: number;
     score: number;
-    probs: number[]; // todas las probabilidades
+    probs: number[]; // All probabilities
 };
 
 export function classifyGazeDirection(output: ort.Tensor): Classification {
     const raw = output.data as Float32Array;
     let values = Array.from(raw);
 
-    // Ultralytics exporta el softmax incluido, así que la suma ya es 1.
-    // Si no lo fuera (logits), lo aplicamos aquí.
+    //Ultralytics export includes softmax, so total sum it's already 1
+    //In case it wasn't (logits), we apply it here
     const sum = values.reduce((a, b) => a + b, 0);
     const isProbability = Math.abs(sum - 1) < 0.01 && values.every((v) => v >= 0);
 
-    if (!isProbability) { //softmax, para convertir a posibilidades
-        const max = Math.max(...values); // restar el máximo evita desbordamientos en exp()
+    if (!isProbability) { //softmax, to convert to probabilities
+        const max = Math.max(...values); //By substracting max we avoid overflows on exp()
         const exps = values.map((v) => Math.exp(v - max));
         const total = exps.reduce((a, b) => a + b, 0);
         values = exps.map((e) => e / total);
@@ -50,8 +51,8 @@ export function classifyHeadPosition(output: ort.Tensor): Classification {
     const sum = values.reduce((a, b) => a + b, 0);
     const isProbability = Math.abs(sum - 1) < 0.01 && values.every((v) => v >= 0);
 
-    if (!isProbability) { //softmax, para convertir probabilidades
-        const max = Math.max(...values); // restar el máximo evita desbordamientos en exp()
+    if (!isProbability) { 
+        const max = Math.max(...values); 
         const exps = values.map((v) => Math.exp(v - max));
         const total = exps.reduce((a, b) => a + b, 0);
         values = exps.map((e) => e / total);

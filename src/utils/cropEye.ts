@@ -1,14 +1,14 @@
 import * as ort from "onnxruntime-web/webgpu";
 import type { BBox } from "./processOutput";
 
-const EYE_SIZE = 224; // imgsz del clasificador de ojo
+const EYE_SIZE = 224; //Eye classificator's imgsz
 
-// Proporciones respecto a la bbox de la cabeza (0 a 1). AJÚSTALAS mirando el recorte.
-const EYE_CENTER_X = 0.65; // 0.65 = ojo izquierdo de la persona (derecha en imagen)
-const EYE_CENTER_Y = 0.40; // altura del ojo desde la parte superior de la caja
-const EYE_SIDE = 0.35;     // lado del recorte cuadrado, como fracción del ancho de la caja
+//Proportions regarding head's bbox (0 to 1). Adjust manually
+const EYE_CENTER_X = 0.65; // 0.65 = Left eye (Right in the image)
+const EYE_CENTER_Y = 0.40; //Eye's height from bbox's top
+const EYE_SIDE = 0.35;     //side of squared crop, as a fraction of bbox's width
 
-// Canvas y buffer creados una sola vez
+// Canvas & buffer are created only once
 const canvas = document.createElement("canvas");
 canvas.width = EYE_SIZE;
 canvas.height = EYE_SIZE;
@@ -20,18 +20,18 @@ export function eyeCropToTensor(video: HTMLVideoElement, box: BBox): ort.Tensor 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    // Cuadrado centrado en la posición estimada del ojo
+    // Square centered in eye's estimated position
     const side = Math.min(box.w * EYE_SIDE, vw, vh);
     const cx = box.x + box.w * EYE_CENTER_X;
     const cy = box.y + box.h * EYE_CENTER_Y;
 
-    // Si se sale del vídeo, se desplaza dentro en vez de recortarse (mantiene el cuadrado)
+    // Moves crop if its bounds are outside the canvas
     const sx = Math.min(Math.max(cx - side / 2, 0), vw - side);
     const sy = Math.min(Math.max(cy - side / 2, 0), vh - side);
 
     ctx.drawImage(video, sx, sy, side, side, 0, 0, EYE_SIZE, EYE_SIZE);
 
-    // RGBA intercalado -> NCHW planar, normalizado a [0, 1]
+    // Intercalated RGB -> plannar NCHW, normalized in [0, 1]
     const { data } = ctx.getImageData(0, 0, EYE_SIZE, EYE_SIZE);
     for (let i = 0; i < plane; i++) {
         floatData[i]             = data[i * 4]     / 255;
@@ -42,5 +42,5 @@ export function eyeCropToTensor(video: HTMLVideoElement, box: BBox): ort.Tensor 
     return new ort.Tensor("float32", floatData, [1, 3, EYE_SIZE, EYE_SIZE]);
 }
 
-// Para debug
+// for debugging, ignore
 export const eyeDebugCanvas = canvas;

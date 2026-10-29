@@ -39,4 +39,4 @@ export function createVideoPreprocessor(size: number) {
 }
 
 export const videoToTensor = createVideoPreprocessor(640);               // detector
-export const videoToHeadPoseTensor = createVideoPreprocessor(384);       // clasificador cabeza
+export const videoToHeadPoseTensor = createVideoPreprocessor(384);       // head classificator

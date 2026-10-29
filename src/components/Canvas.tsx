@@ -9,11 +9,12 @@ type CanvasProps = {
   width: number;
   height: number;
   source: HTMLVideoElement;
-  bbox: React.RefObject<BBox | null>;
+  bboxHead: React.RefObject<BBox | null>;
+  bboxHandGestures:React.RefObject<BBox | null>;
 };
 
 
-export default function Canvas( {width, height, source, bbox}:CanvasProps){
+export default function Canvas( {width, height, source, bboxHead,bboxHandGestures}:CanvasProps){
     const ref = useRef<HTMLCanvasElement>(null);
 
     
@@ -35,12 +36,19 @@ export default function Canvas( {width, height, source, bbox}:CanvasProps){
             if (source.readyState >= 2) { //Cuando haya un fotograma cargado
                 ctx.drawImage(source, 0, 0, canvas.width, canvas.height); //Fotograma actual
 
-                const box=bbox.current;
-
+                const headBox=bboxHead.current;
+                const handGestureBox=bboxHandGestures.current;
+                ctx.strokeStyle="blue";
                 
 
-                if (box){
-                    ctx.strokeRect(box.x,box.y,box.w,box.h);
+                if (headBox){
+                    ctx.strokeRect(headBox.x,headBox.y,headBox.w,headBox.h);
+                    ctx.strokeText(headBox.classification + `: ${headBox.score.toFixed(2)}`,headBox.x,headBox.y-5);
+                }
+
+                if(handGestureBox){
+                    ctx.strokeRect(handGestureBox.x,handGestureBox.y,handGestureBox.w,handGestureBox.h);
+                    ctx.strokeText(handGestureBox.classification + `: ${handGestureBox.score.toFixed(2) }` ,handGestureBox.x,handGestureBox.y-5);
                 }
                 
             }

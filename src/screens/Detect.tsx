@@ -28,7 +28,6 @@ export default function Detect(){
     const [start, setStart]=useState(false);
     const [headPosition,setHeadPosition]=useState("");
     const [gazeDirection, setGazeDirection]=useState("");
-    const [handGesture,setHandGesture]=useState("");
 
     const startRef=useRef(start);
     const intervalRef=useRef(10);
@@ -141,7 +140,7 @@ export default function Detect(){
         bboxHandGesturesRef.current=processHandGesture(hand_gesture_outpout,letterbox);
 
         if (bboxHandGesturesRef.current){
-            setHandGesture(bboxHandGesturesRef.current.classification);
+            
             handGestureRef.current=bboxHandGesturesRef.current.classification;
         }
         //Classify if we detect a head

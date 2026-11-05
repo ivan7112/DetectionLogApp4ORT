@@ -20,7 +20,7 @@ export default function Detect(){
         head_position:string,
         gaze_direction:string,
         hand_gesture:string,
-        emotions:Array<string>
+        emotions:string
     }
 
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -131,7 +131,7 @@ export default function Detect(){
             head_position:"",
             gaze_direction:"",
             hand_gesture:"",
-            emotions:[]
+            emotions:"[]"
 
         };
 
@@ -199,7 +199,7 @@ export default function Detect(){
                 head_position:headPosition,
                 gaze_direction:"",
                 hand_gesture:handGestureRef.current,
-                emotions:emotionsRef.current
+                emotions:"[" + emotionsRef.current.join(',') + "]"
             }
 
             if (headPosition==="center"){

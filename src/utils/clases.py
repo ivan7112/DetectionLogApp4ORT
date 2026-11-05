@@ -1,7 +1,7 @@
 import onnx
 
 # Cargar el modelo ONNX
-model = onnx.load("./public/head_detector.onnx")
+model = onnx.load("./public/emotion_classifier.onnx")
 
 # Buscar las clases en los metadatos
 for meta in model.metadata_props:

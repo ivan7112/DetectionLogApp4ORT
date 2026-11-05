@@ -3,8 +3,9 @@ import * as ort from "onnxruntime-web";
 
 //Same order as model.names in Python 
 //Replace this names with your own classificator's classes
-export const HEAD_POSE_NAMES = ["down", "up", "center", "right", "left"];
-export const EYE_CLASS_NAMES=["down", "up", "center", "right", "left"];
+export const HEAD_POSE_NAMES:Array<string> = ["down", "up", "center", "right", "left"];
+export const EYE_CLASS_NAMES:Array<string>=["down", "up", "center", "right", "left"];
+export const EMOTION_NAMES:Array<string>=['angry','confused','disgust','fear','happy','neutral','sad','shy','surprise'];
 
 export type Classification = {
     label: string;
@@ -13,6 +14,21 @@ export type Classification = {
     probs: number[]; // All probabilities
 };
 
+export const topNclasses= (n:number,probs:Array<number>,posible_classes:Array<string>):Array<string> =>{
+
+    //Sort probs array, get the indexes and return the array of classes
+    n=Math.min(n,probs.length);
+    const res:Array<string>=[];
+    let props_copy=[...probs];
+    props_copy.sort((a,b)=>a-b);
+    const indexes=props_copy.splice(props_copy.length - n).map(e=>probs.indexOf(e));
+    indexes.forEach(i=>{
+        res.push(posible_classes[i]);
+    })
+
+    return res;
+
+}
 
 
 const classification= (output:ort.Tensor, classes:Array<string>): Classification =>{
@@ -51,4 +67,8 @@ export const classifyHeadPosition = (output:ort.Tensor) =>{
 
 export const classifyGazeDirection = (output:ort.Tensor) =>{
     return classification(output,EYE_CLASS_NAMES);
+}
+
+export const classifyEmotion = (output:ort.Tensor) =>{
+    return classification(output,EMOTION_NAMES);
 }

@@ -2,8 +2,8 @@
 import * as ort from "onnxruntime-web";
 import Canvas from "../components/Canvas";
 import { useEffect, useState, useRef } from "react";
-import { videoToTensor, videoToHeadPoseTensor} from "../utils/videototensor";
-import { classifyGazeDirection, classifyHeadPosition, type Classification } from "../utils/classifications";
+import { videoToTensor, videoToHeadPoseTensor, videoToEmotionTensor} from "../utils/videototensor";
+import { classifyEmotion, classifyGazeDirection, classifyHeadPosition, EMOTION_NAMES, topNclasses, type Classification } from "../utils/classifications";
 import { eyeCropToTensor } from "../utils/cropEye";
 import createCsv from "../utils/createCsv";
 import { processHead } from "../utils/processOutput";
@@ -19,7 +19,8 @@ export default function Detect(){
         SS:string,
         head_position:string,
         gaze_direction:string,
-        hand_gesture:string
+        hand_gesture:string,
+        emotions:Array<string>
     }
 
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,11 +38,14 @@ export default function Detect(){
     const sessionHeadPositionRef=useRef<ort.InferenceSession | null>(null);
     const sessionGazeDirectionRef=useRef<ort.InferenceSession | null>(null);
     const sessionHandGestureRef=useRef<ort.InferenceSession | null>(null);
+    const sessionEmotionRef=useRef<ort.InferenceSession | null>(null);
 
     const bboxHeadref = useRef<ReturnType<typeof processHead>>(null);
     const bboxHandGesturesRef=useRef<ReturnType<typeof processHandGesture>>(null);
 
     const handGestureRef=useRef<string>("");
+    const emotionsRef=useRef<Array<string>>([]);
+
 
 
     //CSV Rows. The format will be HH,MM,SS,head_position,gaze_direction
@@ -77,6 +81,14 @@ export default function Detect(){
         
         return sessionHandGestureRef.current;
     }
+
+    const getSessionEmotion= async ()=>{
+        if (!sessionEmotionRef.current) sessionEmotionRef.current=await ort.InferenceSession
+        .create('/emotion_classifier.onnx',{executionProviders:["webgpu","wasm"]});
+
+        return sessionEmotionRef.current;
+
+    }
     
 
     useEffect(() => {
@@ -109,7 +121,7 @@ export default function Detect(){
     useEffect(() => { startRef.current = start; }, [start]);
     
 
-    const headDetectionInference=async  (video:HTMLVideoElement) =>{
+    const DetectionInference=async  (video:HTMLVideoElement) =>{
         //Stores detections in csvRows until the camera is closed
 
         let rowCsv:CsvRow={
@@ -118,20 +130,21 @@ export default function Detect(){
             SS:"",
             head_position:"",
             gaze_direction:"",
-            hand_gesture:""
+            hand_gesture:"",
+            emotions:[]
 
         };
 
         const {tensor, letterbox}=videoToTensor(video);
-        const session=await getSession();
+        const headsession=await getSession();
         const handSession=await getSessionHandGesture();
 
         //Detectors are called and their results are processed to bboxes
-        const result=await session.run({[session.inputNames[0]]:tensor});
-        const hand_gesture_result=await handSession.run({[session.inputNames[0]]:tensor});
+        const head_result=await headsession.run({[headsession.inputNames[0]]:tensor});
+        const hand_gesture_result=await handSession.run({[headsession.inputNames[0]]:tensor});
 
-        const output=result[session.outputNames[0]];
-        const hand_gesture_outpout=hand_gesture_result[session.outputNames[0]];
+        const output=head_result[headsession.outputNames[0]];
+        const hand_gesture_outpout=hand_gesture_result[headsession.outputNames[0]];
 
 
 
@@ -146,16 +159,32 @@ export default function Detect(){
         //Classify if we detect a head
         if (bboxHeadref.current){
 
-
-            const {tensor}=videoToHeadPoseTensor(video);
+            //Head pose Classification
+            const headPoseTensor=videoToHeadPoseTensor(video).tensor;
             const sessionHeadPose=await getSessionHeadPosition();
-            const resultHeadPosition=await sessionHeadPose.run({[sessionHeadPose.inputNames[0]]:tensor})
+            const resultHeadPosition=await sessionHeadPose.run({[sessionHeadPose.inputNames[0]]:headPoseTensor})
             const output2=resultHeadPosition[sessionHeadPose.outputNames[0]];
 
             const headPoseClass:Classification=classifyHeadPosition(output2);
 
             setHeadPosition(headPoseClass.label);
 
+            //Emotion Classification
+            const emotionTensor=videoToEmotionTensor(video).tensor;
+            const sessionEmotion=await getSessionEmotion();
+            const resultEmotion= await sessionEmotion.run({[sessionEmotion.inputNames[0]]:emotionTensor});
+            const outputEmotion=resultEmotion[sessionEmotion.outputNames[0]];
+
+            const emotionClass:Classification=classifyEmotion(outputEmotion);
+            
+            emotionsRef.current=topNclasses(1,emotionClass.probs,EMOTION_NAMES);
+            console.log(emotionsRef.current);
+
+          
+
+
+
+            //Csv row creation
             const date= new Date();
             const hour=date.getHours();
             const minute=date.getMinutes();
@@ -169,14 +198,15 @@ export default function Detect(){
                 SS:second.toString(),
                 head_position:headPosition,
                 gaze_direction:"",
-                hand_gesture:handGestureRef.current
+                hand_gesture:handGestureRef.current,
+                emotions:emotionsRef.current
             }
 
             if (headPosition==="center"){
-                const tensor=eyeCropToTensor(video, bboxHeadref.current);
+                const eyetensor=eyeCropToTensor(video, bboxHeadref.current);
 
                 const sessionGazeDirection=await  getSessiongazeDirection();
-                const resultGazeDirection= await sessionGazeDirection.run({[ sessionGazeDirection.inputNames[0]]:tensor});
+                const resultGazeDirection= await sessionGazeDirection.run({[ sessionGazeDirection.inputNames[0]]:eyetensor});
                 const output3= resultGazeDirection[sessionGazeDirection.outputNames[0]];
 
                 const gazeDirectionClass=classifyGazeDirection(output3);
@@ -206,7 +236,7 @@ export default function Detect(){
             busyRef.current=true;
             const v=videoRef.current;
 
-            await headDetectionInference(v!);
+            await DetectionInference(v!);
             
             frameRef.current=0;
             busyRef.current=false;
@@ -260,6 +290,17 @@ export default function Detect(){
             <div>
                 <p>Hand Gesture:{handGestureRef.current}</p>
             </div>
+
+            {emotionsRef.current && emotionsRef.current.length && (
+                <>
+                <div>
+                    <p>Posible emotions: {emotionsRef.current.join(',')}</p>
+                </div>
+                        
+                </>
+            )
+
+            }
 
         <video ref={videoRef} autoPlay playsInline muted style={{display:'none'}} />
         <Canvas width={640} height={480} source={video!} bboxHead={bboxHeadref!} bboxHandGestures={bboxHandGesturesRef!} />

@@ -52,6 +52,18 @@ export default function Detect(){
     const csvRows = useRef<Array<CsvRow>>([]);
 
 
+    //Send data to Backend
+    const BACKEND_URL="ws://localhost:8000/uploadlog"
+    const wsref=useRef<WebSocket>(null)
+   
+
+
+    const sendDatatoBack= async ()=>{
+        console.log("something");
+       
+    }
+
+
 
     const getSession=async  ()=>{
         if (!sessionRef.current) sessionRef.current=await ort.
@@ -89,6 +101,22 @@ export default function Detect(){
         return sessionEmotionRef.current;
 
     }
+
+    useEffect(()=>{
+        const ws=new WebSocket(BACKEND_URL);
+        wsref.current=ws
+
+        ws.onopen= ()=>{
+            console.log("Conection opened");
+            sendDatatoBack()
+        }
+        ws.onclose= ()=> console.log("Conection closed");
+        ws.onerror= (err)=> console.log("An error has ocurred: ", err)
+        ws.onmessage= (msg) =>console.log(msg)
+
+        return ()=>ws.close()
+
+    },[])
     
 
     useEffect(() => {
@@ -178,7 +206,7 @@ export default function Detect(){
             const emotionClass:Classification=classifyEmotion(outputEmotion);
             
             emotionsRef.current=topNclasses(1,emotionClass.probs,EMOTION_NAMES);
-            console.log(emotionsRef.current);
+            
 
           
 
@@ -219,8 +247,26 @@ export default function Detect(){
 
             
         }
+
+        const logBackend={log:Object.values(rowCsv).join(',')}
+        const auxcanvas=document.createElement("canvas")
+        const ctxaux=auxcanvas.getContext("2d")
+        const videoaux=videoRef.current
+        
+        if (ctxaux && videoaux && bboxHeadref.current){
+            auxcanvas.width = videoaux.videoWidth;
+            auxcanvas.height = videoaux.videoHeight;
+            ctxaux.drawImage(videoaux,0,0,videoaux.videoWidth,videoaux.videoHeight);
+            auxcanvas.toBlob((blob)=>{
+                if (!blob) return;
+                wsref.current?.send(JSON.stringify(logBackend));
+                wsref.current?.send(blob);
+
+            },"image/jpg",1.0);
+        }
         
         busyRef.current=false;
+        
     }
 
     
